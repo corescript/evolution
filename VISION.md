@@ -72,7 +72,7 @@ Principle 2 asks that every verification result belong to exact inputs, and hash
 
 ### Other formats in the codebase
 
-Part of a product's meaning lives in formats that are not CoreScript: a SQL schema, an OpenAPI document, a stylesheet, a page of Markdown. TypeScript 7.1 introduced content mappers for this. A mapper is registered for a kind of file and produces a typed representation of it, with positions mapped back to the original, so types flow out of the foreign format and diagnostics land inside it. The checker we fork implements them, and CoreScript keeps them.
+Part of a product's meaning lives in formats that are not CoreScript: a SQL schema, an OpenAPI document, a stylesheet, a page of Markdown. TypeScript 7.1 introduced content mappers for this. A mapper is registered for a kind of file and produces a typed representation of it, with positions mapped back to the original, so types flow out of the foreign format and diagnostics land inside it. The compiler we fork implements them, and CoreScript keeps them.
 
 A stored asset is content-addressed like a definition, so a mapper's output can be cached by the asset's hash. TypeScript runs a mapper as an external process and asks for explicit permission before it does. We expect a CoreScript mapper to be compile-time code with no capabilities, which needs no such permission.
 
@@ -208,9 +208,9 @@ Views control how much an agent reads. A signature-only view of a namespace, a c
 
 Observation completes the loop. Principle 1 says a feature is incomplete until an agent can exercise and inspect it, so a running program can be driven and inspected through the same interface: dispatch an action to a component and read its state, with no user interface attached.
 
-Programs get the same access. TypeScript 7.1 restored a compiler API that tools reach over a protocol, and the checker we fork implements it. CoreScript keeps that API and widens it to the queries and edits above, so a harness, an editor, or a review tool asks the compiler directly.
+Programs get the same access. TypeScript 7.1 restored a compiler API that tools reach over a protocol, and the compiler we fork implements it. CoreScript keeps that API and widens it to the queries and edits above, so a harness, an editor, or a review tool asks the compiler directly.
 
-All of this is served from the same schema as the terminal interface, and over MCP. A conventional language server remains available for people in editors, since the checker we fork includes one.
+All of this is served from the same schema as the terminal interface, and over MCP. A conventional language server remains available for people in editors, since the compiler we fork includes one.
 
 ## Multi-target compilation
 
@@ -403,8 +403,9 @@ The additions are value types (records, tuples, and structs), enums with payload
 
 ### The toolchain
 
-- The checker is a fork of [tsrs](https://github.com/oxc-project/tsrs), the Oxc project's Rust port of the TypeScript 7 compiler and language server. It ports TypeScript's own scanner, parser, binder, checker, and printer, and it implements the two extension points TypeScript 7.1 added, the compiler API and content mappers. We track it until its stable 7.1 release and then diverge. One obligation remains afterward: the reader for declaration files keeps up with tsc for as long as we consume npm typings, with tsrs's frozen baselines as its regression gate.
-- The trees are handled by a fork of [Oxc](https://oxc.rs): its parser, printer, formatter, and transformer. tsrs is built to answer questions about meaning. Parsing new syntax, rendering views, lowering to JavaScript, and rewriting code for refactors are transformation work, and Oxc's arena-allocated tree and in-place traversal are built for that. Oxc also parses the source of npm packages, resolves modules, and minifies the JavaScript we emit, with Rolldown for bundling.
+- The compiler is a fork of [tsrs](https://github.com/oxc-project/tsrs), the Oxc project's Rust port of the TypeScript 7 compiler and language server. It ports TypeScript's own scanner, parser, binder, checker, transformers, and printer, and it implements the two extension points TypeScript 7.1 added, the compiler API and content mappers. One tree serves parsing, checking, lowering, and printing, so new syntax is added in one place and types are at hand wherever code is lowered. We track tsrs until its stable 7.1 release and then diverge. One obligation remains afterward: the reader for declaration files keeps up with tsc for as long as we consume npm typings, with tsrs's frozen baselines as its regression gate.
+- Views are rendered by a printer of our own on that tree, one that fits lines to a width. tsrs's printer does not, and its formatter only adjusts whitespace in text that already exists.
+- [Oxc](https://oxc.rs) and Rolldown are used unmodified at the end of the JavaScript pipeline, to minify and bundle what the compiler emits. tsrs has no minifier and no bundler, and by that point no CoreScript syntax remains.
 - LLVM generates native code.
 - Clang reads C and Objective-C headers, and `swiftc` compiles the bodies that Swift interfaces leave to their clients.
 
@@ -415,7 +416,7 @@ The toolchain is written in Rust.
 The first release targets JavaScript, for the web and for servers, and Apple platforms. Android follows, then Windows and Linux. We propose this order:
 
 1. The codebase store, the `core` command over it, and the cold-agent benchmark. Every later decision is measured with them.
-2. The dialect on JavaScript: the forked checker, the removals and changed rules, and the oracle against Node. This is the first usable target, for the web and for servers.
+2. The dialect on JavaScript: the forked compiler, the removals and changed rules, and the oracle against Node. This is the first usable target, for the web and for servers.
 3. The additions, each with a specification and conformance tests: effect metadata, values, enums and `match`, actors, and compile-time evaluation.
 4. The application architecture and the DOM builder, with rendering on the server. This is the first complete product on one platform.
 5. The Apple backend: LLVM, the runtime, the standard library's native floor, and header import, then the UIKit and AppKit builders, then Swift module import and SwiftUI.
@@ -457,7 +458,6 @@ The codebase:
 - Where does a nominal type's identity come from? Structs, classes, and actors are nominal, and renaming must stay free, so the name cannot be the identity. We lean toward a unique identifier generated when the type is first added, which is how Unison's unique types work.
 - How do agents and people edit without files? The candidates are replacing one definition at a time through a command, editing a scratch buffer that is parsed back into the store, and a materialized directory of `.core` files kept in sync for tools that only understand files. We lean toward the command as the primary path, with the materialized directory for existing editors and agent harnesses.
 - Do existing TypeScript 7.1 content mappers, such as those for Vue, Svelte, and MDX, work unchanged? They speak a protocol to an external process and produce TypeScript. We lean toward supporting the protocol for compatibility and preferring mappers written as compile-time code.
-- How do the checker's tree and the transformation tree relate? The checker is a port of TypeScript's and is written against TypeScript's tree, and the transformation work uses Oxc's. The stored tree could be converted into the checker's form for each check, both sides could parse text separately and match nodes afterward, or the checker could be rewritten onto Oxc's tree. Oxlint and tsrs already run side by side as separate processes that each parse for themselves. We lean toward one stored tree in Oxc's form, converted to the checker's form one definition at a time, so that new syntax is parsed in one place and tsrs's own parser is left to read declaration files.
 
 The tools:
 
@@ -507,6 +507,10 @@ Toolkits such as Flutter and Compose Multiplatform draw one interface on every p
 
 Transpiling to each host language would make the output look native. Every construct would then have to type-check and mean the same thing in three languages, which makes the smallest of the three the real language. We emit native code and class files.
 
+### A second tree for transformation
+
+Oxc's tree is built for rewriting code in place. In a rough comparison on one sample, it stripped types about three times faster than tsrs emitted the same files. A fork of Oxc beside the fork of tsrs would put that speed to use. It would also mean two trees, with every new construct defined in both and a conversion between them. Oxc's transforms work from syntax alone, and most of CoreScript's lowering depends on types: equality on records, checks on `int`, casts, and the choice of a builder. Lowering is also cached by a definition's hash, so its speed matters less here than in a compiler that rebuilds whole files.
+
 ### An embedded JavaScript engine on mobile
 
 Running shared code in JavaScriptCore, Hermes, or QuickJS would work on the first day and would make every npm package available. It also ships a second runtime and a second heap inside every app, which is the opposite of the goal.
@@ -525,7 +529,7 @@ CoreScript borrows more than it invents.
 - The [AT Protocol](https://atproto.com/) for portable identity, signed repositories, and independent indexes and labelers.
 - [Veil](https://github.com/RKKatakam/veil), [jj](https://github.com/jj-vcs/jj), and [Scion](https://www.anthropic.com/research/redesigning-source-control) for source control built for parallel agents.
 - Cloudflare's `cf` command line, by way of the guide in [docs/agent-first-clis.md](docs/agent-first-clis.md), for the terminal interface.
-- TypeScript 7.1 for the compiler API and content mappers, [tsrs](https://github.com/oxc-project/tsrs) for the checker we fork, and [Oxc](https://oxc.rs) for the tree tools we fork.
+- TypeScript 7.1 for the compiler API and content mappers, [tsrs](https://github.com/oxc-project/tsrs) for the compiler we fork, and [Oxc](https://oxc.rs) and Rolldown for minifying and bundling its JavaScript output.
 - [scriptc](https://github.com/vercel-labs/scriptc) and [Porffor](https://porffor.dev/) for evidence that TypeScript compiles ahead of time to native code, and for testing each program against Node.
 - Swift for value semantics, the `as` and `try` families, typed throws, actors, result builders, and the lessons of its macros and of its concurrency defaults.
 - React Native and SwiftUI for the promise that one way of building interfaces can be learned once and applied to each platform natively.
