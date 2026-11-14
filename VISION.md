@@ -93,7 +93,7 @@ export async function loadCart(id: CartId): Promise<Cart>
 ```
 
 | Clause | Says | Propagates through | Discharged by |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `throws(E)` | the call may fail with error `E` | a call marked `try` | `catch` |
 | `uses(C)` | the call needs capability `C` | any call | a scoped handler |
 | `isolated(A)` | the call must run in actor `A`'s domain | a synchronous call | `await` from another domain |
@@ -124,7 +124,7 @@ The clauses are the visible part. The metadata exists for every definition, and 
 
 ## Distributed package registries
 
-CoreScript libraries are published without a central registry. A release is announced as a signed record on the [AT Protocol](https://atproto.com/), the protocol behind Bluesky, and a registry is an index that anyone can run. tcm distributes libraries this way, and Zena has [designed its package manager](https://github.com/elematic/zena/blob/main/docs/design/package-manager.md) around the same protocol. We intend to follow them closely.
+CoreScript libraries are published without a central registry. A release is announced as a signed record on the [AT Protocol](https://atproto.com/), the protocol behind Bluesky, and a registry is an index that anyone can run. [tcm distributes libraries this way](https://tcm.codes/registry/), and Zena has [designed its package manager](https://github.com/elematic/zena/blob/main/docs/design/package-manager.md) around the same protocol. We intend to follow them closely.
 
 The protocol supplies pieces that a package ecosystem usually has to build and then govern. An account is named by a DID, which stays the same when the account changes its host or its handle. An account's records live in a repository whose commits are signed with the account's key, so any single record can be fetched together with a proof that it belongs there. A handle is a domain name the account proves it controls. Indexes and moderation are separate services that read the same public data.
 
@@ -147,7 +147,7 @@ Git stores files and lines, expects a few people who take turns, and loses work 
 
 History is a history of names. Each revision is a map from names to hashes, and the difference between two revisions is stated in terms of meaning: this definition was renamed, this one changed, these were re-hashed only because something they use changed. A merge is three-way by name, so a conflict means both sides changed the same definition. Formatting cannot conflict, and neither can two edits that happen to touch neighboring lines.
 
-Principle 7 sets the rest of the requirements, and systems already built for agents show how to meet them. We expect to borrow from [Veil](https://github.com/RKKatakam/veil), from [jj](https://github.com/jj-vcs/jj), from tcm, and from Anthropic's account of [Scion](https://www.anthropic.com/research/redesigning-source-control).
+Principle 7 sets the rest of the requirements, and systems already built for agents show how to meet them. We expect to borrow from [Veil](https://github.com/RKKatakam/veil), from [jj](https://github.com/jj-vcs/jj), from [tcm](https://tcm.codes/forge/), and from Anthropic's account of [Scion](https://www.anthropic.com/research/redesigning-source-control).
 
 - Nothing is lost by forgetting a step. There is no staging area. Every operation is recorded, and undo adds a new entry and rewrites nothing.
 - Unfinished work can be stored and shared. A draft may be text or a tree with holes, may fail to compile, and may hold alternatives nobody has chosen between. Saving a draft never makes it authoritative. A store that accepts only typed trees, as Unison's does, cannot hold one.
@@ -159,7 +159,7 @@ Principle 7 sets the rest of the requirements, and systems already built for age
 
 Review changes shape as well. A reviewer sees what a change reaches, which contracts it alters, and which tests cover it, and reads code only where that summary raises a question. Verification follows the same graph: the tests that reach a change are the ones that run, and their results travel with the change to every other machine.
 
-Source control here is a service that answers questions, such as what changed, who changed it, and what depends on it, with no checkout needed to ask. Git cannot operate on this model, and we do not want lossy conversions to files in order to use it. The lossless text form makes a read-only git mirror cheap, for hosting and for tools that only read.
+Source control here is a service that answers questions, such as what changed, who changed it, and what depends on it, with no checkout needed to ask. Git cannot operate on this model, and we do not want lossy conversions to files in order to use it. The lossless text form makes a read-only git mirror cheap, for tools that only read.
 
 The commitments above are firm. The mechanisms behind them are still to be designed.
 
@@ -217,7 +217,7 @@ All of this is served from the same schema as the terminal interface, and over M
 One codebase compiles to every platform a product ships on, and each target gets output native to it. On the web that is JavaScript. On native targets it is the platform's own binary format, produced directly: a CoreScript app carries a small runtime of its own, with no JavaScript engine inside, and its code never passes through Swift or Kotlin source on the way.
 
 | Target | Output | Memory | Stage |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Web | JavaScript modules, with nothing to download beyond inserted checks and value equality | The engine's garbage collector | First release |
 | Server | JavaScript on Node, Bun, and workerd, where any npm package also runs | The engine's garbage collector | First release |
 | Apple platforms | Native code generated through LLVM, following Swift's ABI | Reference counting with a cycle collector | First release |
@@ -234,15 +234,15 @@ On Apple platforms it means Swift's ABI: its calling conventions, type metadata,
 
 The mapping between CoreScript's types and each platform's is fixed, and it holds in both directions.
 
-| CoreScript | Swift | Kotlin |
-|---|---|---|
-| struct, record, tuple | struct | data class |
-| enum | enum | enum class |
-| enum with payloads | enum with associated values | sealed interface |
-| protocol | protocol | interface |
-| `int` | `Int` | `Long` |
-| async function | async function | `suspend` function |
-| parameter names | argument labels | named parameters |
+| CoreScript            | Swift                       | Kotlin             |
+| --------------------- | --------------------------- | ------------------ |
+| struct, record, tuple | struct                      | data class         |
+| enum                  | enum                        | enum class         |
+| enum with payloads    | enum with associated values | sealed interface   |
+| protocol              | protocol                    | interface          |
+| `int`                 | `Int`                       | `Long`             |
+| async function        | async function              | `suspend` function |
+| parameter names       | argument labels             | named parameters   |
 
 Because each side sees the other as native, a product with existing Swift or Kotlin code can adopt CoreScript one module at a time. The destination is a product written entirely in CoreScript.
 
@@ -286,7 +286,7 @@ CoreScript shares everything except the views and the interactions inside them. 
 React Native named this approach in 2015 as "learn once, write anywhere", and Apple made the same promise for SwiftUI across its own platforms. CoreScript extends it across toolkits from different vendors.
 
 | Toolkit | Platform | Style | Declarations come from |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | DOM | Web, with rendering on the server | Imperative | TypeScript declaration files |
 | UIKit | iOS and its relatives | Imperative | Objective-C headers |
 | AppKit | macOS | Imperative | Objective-C headers |
@@ -393,7 +393,7 @@ Each is the subject of an early spike.
 
 [DESIGN.md](DESIGN.md) describes the language. This section says where it starts and why.
 
-CoreScript starts from TypeScript. Agents already write it well, from a very large corpus. It has mature tooling, including dozens of Rust crates. On the web it is the language itself, and JavaScript engines and test262 already define what a correct program does. Other projects have shown the remaining pieces work: [scriptc](https://github.com/vercel-labs/scriptc) and [Porffor](https://porffor.dev/) compile it ahead of time to native code, and tcm stores it as a content-addressed codebase.
+CoreScript starts from TypeScript. Agents already write it well, from a very large corpus. It has mature tooling, including dozens of Rust crates. On the web it is the language itself, and JavaScript engines and test262 already define what a correct program does. Other projects have shown the remaining pieces work: [scriptc](https://github.com/vercel-labs/scriptc) and [Porffor](https://porffor.dev/) compile it ahead of time to native code, and [tcm](https://tcm.codes/) stores it as a content-addressed codebase.
 
 TypeScript as it stands cannot be the language. Its types can lie, it has no way to state failure or capabilities, and it has no value types. So CoreScript is a dialect, neither a strict subset of TypeScript nor a superset, governed by one rule. Wherever TypeScript's types tell the truth, CoreScript computes the same values. Where they would have lied, it rejects the program, traps, or returns a typed absence. It never silently computes a different value. Being a dialect is a real cost, and we judge it necessary for the best experience for both people and agents.
 
@@ -432,7 +432,7 @@ The rest surround it:
 - LLDB support, so that native code is debugged in terms of CoreScript's definitions and types. Source maps do the same job for JavaScript.
 - Playgrounds and notebooks, where code is edited with its live values beside it.
 - An OpenAPI generator that produces typed clients and servers from a stored OpenAPI document.
-- Reusable GitHub workflows for projects hosted there.
+- Reusable CI/CD workflows for our own source control forge, covering checks, tests, builds for each target, and publication.
 - Docker images that carry the toolchain.
 
 The formatter and the testing library come first, because the store cannot show code without one and the benchmark cannot score a task without the other. The rest follow the step of the work they serve.
@@ -561,5 +561,5 @@ CoreScript borrows more than it invents.
 - React Native and SwiftUI for the promise that one way of building interfaces can be learned once and applied to each platform natively.
 - SwiftUI and Jetpack Compose as the declarative toolkits that markup translates into, and the block virtual DOM technique for the imperative ones.
 - TC39 proposals for [records and tuples](https://github.com/tc39/proposal-record-tuple), [pattern matching](https://github.com/tc39/proposal-pattern-matching), [first-class protocols](https://github.com/tc39/proposal-first-class-protocols), [do expressions](https://github.com/tc39/proposal-do-expressions), the [pipeline operator](https://github.com/tc39/proposal-pipeline-operator), [decorators](https://github.com/tc39/proposal-decorators), [extractors](https://github.com/tc39/proposal-extractors), and enums.
-- TSRX and the [JSX 2.0 discussion](https://github.com/react/jsx/issues/65) for markup.
-- The Elm Architecture for the shape of an application.
+- [TSRX](https://tsrx.dev) and the [JSX 2.0 discussion](https://github.com/react/jsx/issues/65) for markup.
+- [The Elm Architecture](https://guide.elm-lang.org/architecture/) for the shape of an application.
