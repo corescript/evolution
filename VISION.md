@@ -230,7 +230,7 @@ The same rules apply on every target. A program that compiles for one target mea
 
 To a platform's frameworks, CoreScript's output has to be indistinguishable from code written in the platform's own language. That is what lets a CoreScript type conform to a SwiftUI protocol, or a CoreScript function act as a Compose composable, and it asks more of the compiler than being callable from the host language would.
 
-On Apple platforms it means Swift's ABI: its calling conventions, type metadata, value and protocol witness tables, and symbol names, for generic code as well as concrete code. Native code is generated through LLVM, which Swift's own compiler uses, so the conventions that ABI depends on are already there. On Android it means class files with the metadata Kotlin reads, following the conventions of Kotlin's coroutines and of the Compose runtime. CoreScript writes all of this itself. No Swift or Kotlin source is generated on the way, as an overlay or otherwise.
+On Apple platforms it means Swift's ABI: its calling conventions, type metadata, value and protocol witness tables, and symbol names, for generic code as well as concrete code. Native code is generated through LLVM, which Swift's own compiler uses, so the conventions that ABI depends on are already there. On Android it means class files with the metadata Kotlin reads, following the conventions of Kotlin's coroutines and of the Compose runtime. CoreScript writes all of this itself, with no Swift or Kotlin overlay between its output and the platform.
 
 The mapping between CoreScript's types and each platform's is fixed, and it holds in both directions.
 
@@ -315,7 +315,7 @@ One change to the spec follows from this design. Subscriptions are currently `Ob
 
 ### One model for views
 
-A view is a function of state that returns a builder block. Inside a block, written `@{ }`, every statement contributes to the result: tags create elements, text is an ordinary quoted string, and `if` and `for` are the language's own. [DESIGN.md](DESIGN.md#markup) gives the rules. The tags are the toolkit's own types, so a view for the web is written with HTML elements:
+A view renders a state value as a builder block. Inside a block, written `@{ }`, every statement contributes to the result: tags create elements, text is an ordinary quoted string, and `if` and `for` are the language's own. [DESIGN.md](DESIGN.md#markup) gives the rules. The tags are the toolkit's own types, so a view for the web is written with HTML elements:
 
 ```ts
 function CartView(state: CartState, dispatch: Dispatch<CartIntent>): Html {
@@ -356,7 +356,9 @@ function CartView(state: CartState, dispatch: Dispatch<CartIntent>): SwiftUI.Vie
 }
 ```
 
-`CartState`, `CartIntent`, the update function behind them, and its tests are the same definitions in both. An agent that has built the first view already knows how to build the second, apart from the toolkit's vocabulary. How Swift's argument labels and modifiers are written as attributes, and how a build selects between two definitions of one view, are open questions.
+`CartState`, `CartIntent`, the update function behind them, and its tests are the same definitions in both. An agent that has built the first view already knows how to build the second, apart from the toolkit's vocabulary.
+
+These examples write a view as a function. Whether views are functions, structs, or something else is an open question. So are the way Swift's argument labels and modifiers are written as attributes, and the way a build selects between two definitions of one view.
 
 ### Imperative toolkits: bindings and a builder
 
@@ -378,9 +380,9 @@ The architecture meets these toolkits through their own observation mechanisms. 
 
 Both translations depend on contracts that their owners wrote for their own compilers, and they are the largest technical risk in this vision.
 
-- In the macOS 27.2 SDK, SwiftUI's interface marks about 670 declarations, and SwiftUICore's about 330, so that no symbol is exported and every client compiles the body itself. `ViewBuilder.buildBlock` is one of them. CoreScript's toolchain therefore has to compile small pieces of Swift that it reads from Apple's interfaces.
+- In the macOS 27.2 SDK, SwiftUI's interface marks about 670 declarations, and SwiftUICore's about 330, so that no symbol is exported and every client compiles the body itself. `ViewBuilder.buildBlock` is one of them. The build calls `swiftc` for these, in the way it calls Clang for headers. It hands Swift's compiler a small generated file that wraps the declarations a program uses, and links the code that comes back. That file is a build artifact that nobody reads or edits. A trial with `buildBlock` and `buildEither` produced generic functions that follow Swift's calling convention.
 - The checker has to model enough of Swift's type system to type SwiftUI: generics constrained by protocols, associated types, opaque result types, and overloads chosen by argument label.
-- The convention between Compose's compiler and its runtime belongs to the two of them, and at least one past change to it required every library to be recompiled. CoreScript has to follow it one runtime version at a time.
+- The convention between Compose's compiler plugin and its runtime is theirs to change, and at least one past change to it required every library to be recompiled. Both are open source, so CoreScript tracks upstream's implementation release by release.
 
 Each is the subject of an early spike.
 
@@ -399,9 +401,9 @@ The additions are value types (records, tuples, and structs), enums with payload
 ### The toolchain
 
 - The checker is a fork of [tsrs](https://github.com/oxc-project/tsrs), the Oxc project's Rust port of the TypeScript 7 compiler and language server. It ports TypeScript's own scanner, parser, binder, checker, and printer, and it implements the two extension points TypeScript 7.1 added, the compiler API and content mappers. We track it until its stable 7.1 release and then diverge. One obligation remains afterward: the reader for declaration files keeps up with tsc for as long as we consume npm typings, with tsrs's frozen baselines as its regression gate.
-- Oxc's crates handle JavaScript itself: parsing the source of npm packages, resolving modules, and minifying the JavaScript we emit, with Rolldown for bundling.
+- The trees are handled by a fork of [Oxc](https://oxc.rs): its parser, printer, formatter, and transformer. tsrs is built to answer questions about meaning. Parsing new syntax, rendering views, lowering to JavaScript, and rewriting code for refactors are transformation work, and Oxc's arena-allocated tree and in-place traversal are built for that. Oxc also parses the source of npm packages, resolves modules, and minifies the JavaScript we emit, with Rolldown for bundling.
 - LLVM generates native code.
-- Clang reads C and Objective-C headers.
+- Clang reads C and Objective-C headers, and `swiftc` compiles the bodies that Swift interfaces leave to their clients.
 
 The toolchain is written in Rust.
 
@@ -452,6 +454,7 @@ The codebase:
 - Where does a nominal type's identity come from? Structs, classes, and actors are nominal, and renaming must stay free, so the name cannot be the identity. We lean toward a unique identifier generated when the type is first added, which is how Unison's unique types work.
 - How do agents and people edit without files? The candidates are replacing one definition at a time through a command, editing a scratch buffer that is parsed back into the store, and a materialized directory of `.core` files kept in sync for tools that only understand files. We lean toward the command as the primary path, with the materialized directory for existing editors and agent harnesses.
 - Do existing TypeScript 7.1 content mappers, such as those for Vue, Svelte, and MDX, work unchanged? They speak a protocol to an external process and produce TypeScript. We lean toward supporting the protocol for compatibility and preferring mappers written as compile-time code.
+- How do the checker's tree and the transformation tree relate? The checker is a port of TypeScript's and is written against TypeScript's tree, and the transformation work uses Oxc's. The stored tree could be converted into the checker's form for each check, both sides could parse text separately and match nodes afterward, or the checker could be rewritten onto Oxc's tree. Oxlint and tsrs already run side by side as separate processes that each parse for themselves. We lean toward one stored tree in Oxc's form, converted to the checker's form one definition at a time, so that new syntax is parsed in one place and tsrs's own parser is left to read declaration files.
 
 The tools:
 
@@ -461,7 +464,6 @@ The tools:
 
 User interfaces and backends:
 
-- How does the toolchain compile the Swift bodies that SwiftUI's interface requires every client to emit? It could run Swift's compiler front end as a build-time tool, in the way it uses Clang for headers, or translate those bodies itself. We lean toward the first.
 - How are a feature's per-toolkit views named, and how does a build select among them? We lean toward one name per toolkit under the feature, chosen explicitly by each target's entry point.
 - How do async functions and actors map onto each host's concurrency runtime? On Apple platforms the main actor has to be Swift's main actor, since UIKit and SwiftUI are isolated to it. An async function could be a Swift async function at the ABI level, or a CoreScript construct bridged to one. The mapping is not one to one, because a JavaScript promise starts running when it is created and can be awaited later, which a Swift async call cannot. We lean toward building on Swift's concurrency runtime on Apple platforms and on Kotlin's coroutines on Android, as we build on the host's collector.
 - What kind of cycle collector does the reference-counted runtime use? Tracing and trial deletion are the candidates, and we have no leaning yet.
@@ -520,7 +522,7 @@ CoreScript borrows more than it invents.
 - The [AT Protocol](https://atproto.com/) for portable identity, signed repositories, and independent indexes and labelers.
 - [Veil](https://github.com/RKKatakam/veil), [jj](https://github.com/jj-vcs/jj), and [Scion](https://www.anthropic.com/research/redesigning-source-control) for source control built for parallel agents.
 - Cloudflare's `cf` command line, by way of the guide in [docs/agent-first-clis.md](docs/agent-first-clis.md), for the terminal interface.
-- TypeScript 7.1 for the compiler API and content mappers, and [tsrs](https://github.com/oxc-project/tsrs) for the checker we fork.
+- TypeScript 7.1 for the compiler API and content mappers, [tsrs](https://github.com/oxc-project/tsrs) for the checker we fork, and [Oxc](https://oxc.rs) for the tree tools we fork.
 - [scriptc](https://github.com/vercel-labs/scriptc) and [Porffor](https://porffor.dev/) for evidence that TypeScript compiles ahead of time to native code, and for testing each program against Node.
 - Swift for value semantics, the `as` and `try` families, typed throws, actors, result builders, and the lessons of its macros and of its concurrency defaults.
 - React Native and SwiftUI for the promise that one way of building interfaces can be learned once and applied to each platform natively.

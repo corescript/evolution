@@ -284,6 +284,7 @@ Deriving decorators:
 Markup:
 
 - How are Swift's unlabeled arguments, argument labels, modifiers, and trailing closures written as attributes and children? Compose passes its modifiers as an ordinary argument, so the hard case is SwiftUI, where the order of modifiers matters. This needs prototypes, and we have no leaning yet.
+- What form does a view declaration take? The examples in [VISION.md](VISION.md#one-model-for-views) use a function from state to a builder block. A view could be a struct, as in SwiftUI. It could be a function that renders on every update, as in React, one that runs once to set up, as in Solid, or a setup function that returns a render function, as in Remix 3. It could also be any of a function, an async function, a generator, or an async generator, as in [Crank](https://crank.js.org/), where a generator's local variables are the view's own state. The choice decides where a view keeps its transient state. SwiftUI's unit is a struct and Compose's is a function, so the compiler translates on one side whichever form we choose. A struct view can hold a state value and a reference to the store's actor, and cannot hold a closure. The proposal process will settle this, and we have no leaning yet.
 
 The checker:
 
