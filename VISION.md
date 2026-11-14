@@ -12,7 +12,7 @@ Some of that duplication is the price of doing multiplatform apps well. A produc
 
 CoreScript is one programming language for the whole product, together with the tools an agent needs to work in it. Our aim is that it is the only language we and our agents write when building for consumers. Everything shared is written once. Each platform's views are written separately, in the same language and with the same declarative model, against that platform's own toolkit. To make that possible, CoreScript compiles to what each platform's frameworks expect: JavaScript on the web, code that follows Swift's ABI on Apple platforms, and class files that Kotlin's runtime understands on Android.
 
-The language is a dialect of TypeScript. It keeps TypeScript's syntax and type system, removes the dynamic behavior that cannot mean the same thing on every platform, and adds value types, checked casts, effect clauses, and actors. Its tools assume that the author is an agent and the reviewer is a person looking at evidence.
+The language is a dialect of TypeScript. It keeps TypeScript's syntax and type system, removes the dynamic behavior that cannot mean the same thing on every platform, and adds value types, nominal protocols, checked casts, effect clauses, and actors. Its tools assume that the author is an agent and the reviewer is a person looking at evidence.
 
 Eight things define CoreScript, and the main sections of this document take them in order:
 
@@ -239,6 +239,7 @@ The mapping between CoreScript's types and each platform's is fixed, and it hold
 | struct, record, tuple | struct | data class |
 | enum | enum | enum class |
 | enum with payloads | enum with associated values | sealed interface |
+| protocol | protocol | interface |
 | `int` | `Int` | `Long` |
 | async function | async function | `suspend` function |
 | parameter names | argument labels | named parameters |
@@ -255,6 +256,8 @@ The codebase is its own declaration format. A library release is a set of signat
 - JVM class files together with Kotlin's metadata, which covers `android.view` and Jetpack Compose.
 - Windows metadata files, which describe WinRT, where WinUI lives, and, through Microsoft's win32metadata project, Win32 and COM.
 - GObject Introspection data, which describes GTK.
+
+Each platform's nominal interfaces arrive as CoreScript [protocols](DESIGN.md#protocols): Swift and Objective-C protocols, JVM interfaces, WinRT interfaces, and GObject interfaces. A type conforms to one by declaring it, which is how a CoreScript type becomes a SwiftUI view or a UIKit delegate. TypeScript's interfaces stay structural.
 
 Foreign formats state some of what a CoreScript signature carries and miss the rest. Swift interfaces already say which functions throw, which are async, and which are isolated to the main actor. No format states capabilities, and several get nullability wrong. API notes supply the difference. A note is a sidecar keyed to foreign symbols, so it survives a framework or package update where a forked declaration would conflict; Apple's API notes for Objective-C are the precedent. For npm packages, whose source is JavaScript or TypeScript, the compiler reads the source and infers effects as it does for code written in CoreScript, and notes cover the remainder. Platform capabilities are declared by hand at the bottom: the binding written over `NSURLSession` is where `uses(network)` is defined.
 
@@ -394,7 +397,7 @@ CoreScript starts from TypeScript. Agents already write it well, from a very lar
 
 TypeScript as it stands cannot be the language. Its types can lie, it has no way to state failure or capabilities, and it has no value types. So CoreScript is a dialect, neither a strict subset of TypeScript nor a superset, governed by one rule. Wherever TypeScript's types tell the truth, CoreScript computes the same values. Where they would have lied, it rejects the program, traps, or returns a typed absence. It never silently computes a different value. Being a dialect is a real cost, and we judge it necessary for the best experience for both people and agents.
 
-The additions are value types (records, tuples, and structs), enums with payloads and an exhaustive `match`, checked casts, effect clauses, actors, compile-time evaluation with decorators, and markup. People still read this code, so it has to be easy to read and easy to catch mistakes in. Annotations appear where they state a contract, and a small amount of runtime does the rest.
+The additions are value types (records, tuples, and structs), enums with payloads and an exhaustive `match`, nominal protocols, checked casts, effect clauses, actors, compile-time evaluation with decorators, and markup. People still read this code, so it has to be easy to read and easy to catch mistakes in. Annotations appear where they state a contract, and a small amount of runtime does the rest.
 
 ## Building it
 
@@ -527,6 +530,6 @@ CoreScript borrows more than it invents.
 - Swift for value semantics, the `as` and `try` families, typed throws, actors, result builders, and the lessons of its macros and of its concurrency defaults.
 - React Native and SwiftUI for the promise that one way of building interfaces can be learned once and applied to each platform natively.
 - SwiftUI and Jetpack Compose as the declarative toolkits that markup translates into, and the block virtual DOM technique for the imperative ones.
-- TC39 proposals for [records and tuples](https://github.com/tc39/proposal-record-tuple), [pattern matching](https://github.com/tc39/proposal-pattern-matching), [do expressions](https://github.com/tc39/proposal-do-expressions), the [pipeline operator](https://github.com/tc39/proposal-pipeline-operator), [decorators](https://github.com/tc39/proposal-decorators), [extractors](https://github.com/tc39/proposal-extractors), and enums.
+- TC39 proposals for [records and tuples](https://github.com/tc39/proposal-record-tuple), [pattern matching](https://github.com/tc39/proposal-pattern-matching), [first-class protocols](https://github.com/tc39/proposal-first-class-protocols), [do expressions](https://github.com/tc39/proposal-do-expressions), the [pipeline operator](https://github.com/tc39/proposal-pipeline-operator), [decorators](https://github.com/tc39/proposal-decorators), [extractors](https://github.com/tc39/proposal-extractors), and enums.
 - TSRX and the [JSX 2.0 discussion](https://github.com/react/jsx/issues/65) for markup.
 - The Elm Architecture for the shape of an application.
