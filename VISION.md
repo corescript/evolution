@@ -404,12 +404,38 @@ The additions are value types (records, tuples, and structs), enums with payload
 ### The toolchain
 
 - The compiler is a fork of [tsrs](https://github.com/oxc-project/tsrs), the Oxc project's Rust port of the TypeScript 7 compiler and language server. It ports TypeScript's own scanner, parser, binder, checker, transformers, and printer, and it implements the two extension points TypeScript 7.1 added, the compiler API and content mappers. One tree serves parsing, checking, lowering, and printing, so new syntax is added in one place and types are at hand wherever code is lowered. We track tsrs until its stable 7.1 release and then diverge. One obligation remains afterward: the reader for declaration files keeps up with tsc for as long as we consume npm typings, with tsrs's frozen baselines as its regression gate.
-- Views are rendered by a printer of our own on that tree, one that fits lines to a width. tsrs's printer does not, and its formatter only adjusts whitespace in text that already exists.
+- A formatter and a linter of our own are built on that tree, in the roles Oxfmt and Oxlint play for JavaScript. The next section describes them.
 - [Oxc](https://oxc.rs) and Rolldown are used unmodified at the end of the JavaScript pipeline, to minify and bundle what the compiler emits. tsrs has no minifier and no bundler, and by that point no CoreScript syntax remains.
 - LLVM generates native code.
 - Clang reads C and Objective-C headers, and `swiftc` compiles the bodies that Swift interfaces leave to their clients.
 
 The toolchain is written in Rust.
+
+### Tools around the compiler
+
+A language is used through its tools, and we intend to build first-party versions of the ones an ecosystem needs. Swift ships a counterpart to nearly every item below. Each is reached through `core` and described by the same command schema, so an agent discovers and drives it like any other command.
+
+Two are built directly on the compiler's tree:
+
+- A formatter. It is the printer that renders views and materialized files, and it fits lines to a width. tsrs's printer does not, and its formatter only adjusts whitespace in text that already exists. Formatting is never stored, so a change to the formatter changes how code is shown and nothing in the codebase.
+- A linter. Rules run on the checked tree, with types and effect metadata at hand, and their results are cached by hash as test results are. tsrs already carries the type-aware half of Oxlint's rules, which is where ours starts. Much of what a JavaScript linter catches is a compile error in the dialect.
+
+The rest surround it:
+
+- A REPL that evaluates expressions against the codebase.
+- A toolchain manager that installs compiler versions and pins the one a codebase uses.
+- Testing libraries. Tests are definitions, their results are evidence recorded against hashes, and capabilities are replaced by scoped handlers.
+- Build plugins, which let a library contribute a step to a build, such as generating definitions from an asset. A plugin's `uses` clause states what it may touch.
+- Command plugins, which let a library add commands to `core`. They register through the command schema, so they are discovered like built-in commands.
+- Package collections: curated lists of libraries, published as records on the AT Protocol in the manner of Bluesky's starter packs, so that anyone can publish one and any registry can index it.
+- A documentation generator. Documentation is derived from definitions, effect clauses included, so it describes the exact code it was generated from, and it is served as Markdown for agents.
+- LLDB support, so that native code is debugged in terms of CoreScript's definitions and types. Source maps do the same job for JavaScript.
+- Playgrounds and notebooks, where code is edited with its live values beside it.
+- An OpenAPI generator that produces typed clients and servers from a stored OpenAPI document.
+- Reusable GitHub workflows for projects hosted there.
+- Docker images that carry the toolchain.
+
+The formatter and the testing library come first, because the store cannot show code without one and the benchmark cannot score a task without the other. The rest follow the step of the work they serve.
 
 ### Order of work
 
@@ -531,7 +557,7 @@ CoreScript borrows more than it invents.
 - Cloudflare's `cf` command line, by way of the guide in [docs/agent-first-clis.md](docs/agent-first-clis.md), for the terminal interface.
 - TypeScript 7.1 for the compiler API and content mappers, [tsrs](https://github.com/oxc-project/tsrs) for the compiler we fork, and [Oxc](https://oxc.rs) and Rolldown for minifying and bundling its JavaScript output.
 - [scriptc](https://github.com/vercel-labs/scriptc) and [Porffor](https://porffor.dev/) for evidence that TypeScript compiles ahead of time to native code, and for testing each program against Node.
-- Swift for value semantics, the `as` and `try` families, typed throws, actors, result builders, and the lessons of its macros and of its concurrency defaults.
+- Swift for value semantics, the `as` and `try` families, typed throws, actors, result builders, the lessons of its macros and of its concurrency defaults, and the set of tools that ships around its compiler.
 - React Native and SwiftUI for the promise that one way of building interfaces can be learned once and applied to each platform natively.
 - SwiftUI and Jetpack Compose as the declarative toolkits that markup translates into, and the block virtual DOM technique for the imperative ones.
 - TC39 proposals for [records and tuples](https://github.com/tc39/proposal-record-tuple), [pattern matching](https://github.com/tc39/proposal-pattern-matching), [first-class protocols](https://github.com/tc39/proposal-first-class-protocols), [do expressions](https://github.com/tc39/proposal-do-expressions), the [pipeline operator](https://github.com/tc39/proposal-pipeline-operator), [decorators](https://github.com/tc39/proposal-decorators), [extractors](https://github.com/tc39/proposal-extractors), and enums.
