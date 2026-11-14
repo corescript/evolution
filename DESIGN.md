@@ -43,7 +43,7 @@ Nothing at the type level is cut. Conditional types, template literal types, and
 - `!` checks, and traps on every target.
 - `readonly` is sound. A `readonly` property cannot be assigned to a writable one, and the checker enforces that. It is still a view, shallow and aliasable; immutable data is what records are for.
 - `switch` must be exhaustive.
-- `class` is nominal. An instance of one class is never accepted as another because their members happen to match, and an object literal is never an instance. TypeScript treats a class this way only once it has a private member. Interfaces stay structural, and a class satisfies any interface whose members it has.
+- `class` is nominal. An instance of one class is never accepted as another because their members happen to match, and an object literal is never an instance. TypeScript treats a class this way only once it has a private member. Interfaces stay structural, and a class satisfies any interface whose members it has. Protocols, described below, are their nominal counterpart.
 - `enum` loses reverse lookup, computed members, and declaration merging.
 - `namespace` is a name path. A `Button.Props` interface beside a `Button` function, or a class nested under a class, are two definitions at two paths, and nothing merges at run time. Using a namespace as a dynamic bag (`Foo["Bar"]`, `Object.keys(Foo)`) is a compile error.
 - `int` is a subtype of `number`. It is closed under `+`, `-`, and `*`, it traps outside the safe-integer range, and division returns `number`.
@@ -119,6 +119,43 @@ const label = match (state) {
 `match` is an expression, and it must be exhaustive. Adding a case to `LoadState` stops every `match` that lacks it from compiling, which turns "find every place that handles this" from a search into a list of errors. The `is` operator tests a single pattern. Case patterns such as `LoadState.Loaded(let items)` resolve statically to the enum's declaration.
 
 Two smaller proposals come along because they make expressions compose. A `do { }` expression evaluates to its last expression, so a `match` arm can hold statements. The pipeline operator is pure desugaring that lets standalone functions chain the way methods do.
+
+## Protocols
+
+TypeScript's interfaces are structural: any type with the right members satisfies one, whether or not its author meant it to. That suits the shapes of data that arrive from JavaScript. It does not suit a role that has a meaning, where two types with the same members should not be interchangeable, and it cannot represent the interfaces of other platforms, which are all nominal. CoreScript adds protocols for both.
+
+A protocol is a nominal interface. A type conforms only by saying so, with an `implements` clause, and the compiler checks the conformance where it is declared. The base is TC39's first-class protocols proposal, which is at Stage 1. From it come the `protocol` declaration, `requires` for the members a conforming type must supply, provided members that every conforming type receives, `extends` between protocols, and `implements` on a declaration.
+
+```ts
+protocol Ordered {
+  requires compare(other: this): Ordering
+
+  lessThan(other: this): boolean {
+    return this.compare(other) === Ordering.Less
+  }
+}
+
+struct Money implements Ordered {
+  readonly currency: Currency
+  amount: int = 0
+
+  compare(other: Money): Ordering {
+    return compareInts(this.amount, other.amount)
+  }
+}
+
+function max<T extends Ordered>(a: T, b: T): T {
+  return a.lessThan(b) ? b : a
+}
+```
+
+`max` accepts `Money` because `Money` declares the conformance. A struct with an identical `compare` method and no `implements` clause is rejected. Structs, classes, actors, and enums can all conform, and a function that is generic over a protocol dispatches statically.
+
+CoreScript departs from the proposal in the way it does for pattern matching: it keeps the declarations and makes the semantics static. In the proposal, a requirement says only that a property is present, and implementing a protocol copies its members onto an object at run time. Here a requirement is a typed signature, in which TypeScript's `this` type stands for the conforming type, and the compiler resolves conformance with nothing copied. A requirement also carries effect clauses, and a conforming implementation may do less than they allow and never more. A protocol can be isolated to an actor, as SwiftUI's `View` is to the main actor.
+
+Protocols are how other platforms' interfaces appear in CoreScript. Swift and Objective-C protocols, JVM interfaces, WinRT interfaces, and GObject interfaces are all nominal, and each is imported as a protocol. In the other direction, a CoreScript protocol is emitted as the platform's own kind: a Swift protocol with its witness tables, or a JVM interface. A CoreScript type that implements SwiftUI's `View` is therefore a view as far as SwiftUI can tell. Interfaces from TypeScript declaration files stay structural.
+
+We expect the guarantees the compiler already tracks about values to become protocols that it derives: equality, hashing, the ability to cross between actors, and the ability to be serialized. A generic function can then require any of them by name.
 
 ## Checked casts and traps
 
@@ -240,6 +277,7 @@ Keys stay explicit. Records have equality and hashing from the compiler, so `key
 - User-defined matchers. TC39's pattern matching proposal builds them on a `Symbol.customMatcher` protocol looked up at run time, and CoreScript's patterns resolve statically.
 - TC39's structs and shared structs. Classes already have a fixed layout, and shared structs permit data races by design.
 - Compile-time code that produces types. Generating declarations belongs to deriving decorators.
+- The imperative half of TC39's protocols proposal: `Protocol.implement()`, the `Protocol()` constructor, `Protocol.describe()`, and `Protocol.union()`. Conformance is declared and resolved statically.
 
 [VISION.md](VISION.md#alternatives-considered) covers the alternatives to the larger choices, such as capabilities passed as parameters.
 
@@ -280,6 +318,16 @@ Deriving decorators:
 - May handwritten code refer to generated names? We lean toward yes from function bodies and no from the signatures a decorator reads, since expansion runs after declared signatures are checked.
 - May a deriving decorator be applied to a declaration its author does not own, such as a type from a library? We lean toward no at first.
 - Can generated definitions be edited? We lean toward no. They are stored by hash and viewable, and they are regenerated when their inputs change.
+
+Protocols:
+
+- Are a protocol's members plain names or symbols scoped to the protocol? TC39's proposal makes them symbols by default, written `value[Ordered.compare](other)`, so that two protocols can never collide, and offers plain names as an option. Swift, Objective-C, and the JVM all use plain names. We lean toward plain names, with a qualified form for the rare collision.
+- How are associated types and static requirements written? Swift's protocols have both, and SwiftUI's `View` uses both. TC39's proposal has neither, having removed static members in February 2026. Both are required here, and we have no leaning on their syntax.
+- How are Objective-C's optional requirements represented? UIKit's delegate protocols consist almost entirely of them. We lean toward an optional marker on a requirement, allowed only in imported protocols.
+- How does a type declared elsewhere gain a conformance? TC39's proposal does it with a call at run time. We lean toward a standalone conformance declaration, stored as a definition of its own, permitted only when the protocol or the type belongs to the codebase declaring it, with one conformance per pair in a program.
+- How is a protocol used as the type of a value? As a generic constraint it is resolved statically. As the type of a parameter or a result it can mean one concrete type that the caller cannot see, or a box that holds any conforming value. Swift spells these `some` and `any`. We lean toward adopting both spellings and rejecting a bare protocol name in that position.
+- Can conformance be tested at run time, with `as?` or with the proposal's `implements` operator? We lean toward allowing it for class instances, actor references, and boxed values, which carry their type at run time, and rejecting it for records.
+- Which built-in guarantees become protocols? We lean toward equality, hashing, crossing between actors, and serialization, all derived by the compiler and never implemented by hand.
 
 Markup:
 
