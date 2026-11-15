@@ -4,15 +4,13 @@
 
 ## Design philosophy
 
-An agent-first CLI is a command-line interface designed so that AI agents can discover, understand, execute, and verify operations without relying on memorized documentation or human intervention.
+An agent-first CLI is a command-line interface designed so that AI agents can discover, understand, execute, and verify operations without relying on memorized documentation or human intervention. It should remain useful to human developers, but its primary interface contract is optimized for programmatic consumption.
 
-It should remain useful to human developers, but its primary interface contract is optimized for programmatic consumption.
-
-**The fundamental design principle:**
+The design rests on one principle:
 
 > Make capabilities discoverable, inputs predictable, outputs structured, and effects verifiable.
 
-A successful agent-first CLI minimizes the amount of reasoning, context, and trial-and-error required to complete a task.
+A successful agent-first CLI minimizes the reasoning, context, and trial and error a task requires.
 
 ### Core objectives
 
@@ -29,9 +27,7 @@ The CLI should be designed as a machine-consumable interface, not merely a human
 
 ## Treat schemas as the source of truth
 
-Cloudflare's most consequential architectural decision was generating its new CLI from the same API definitions used to produce other developer interfaces.
-
-Instead of manually maintaining hundreds of commands, it uses its Forge generation system to cover thousands of operations.
+Cloudflare's most consequential architectural decision was generating its new CLI from the same API definitions used to produce other developer interfaces. Instead of manually maintaining hundreds of commands, it uses its Forge generation system to cover thousands of operations.
 
 ### Recommendations
 
@@ -49,9 +45,7 @@ For every operation, describe:
 - Whether the operation supports dry runs, local execution, or idempotency.
 - Possible error conditions.
 
-For services with HTTP APIs, OpenAPI is a reasonable foundation. Add annotations for CLI-specific semantics that HTTP schemas cannot express.
-
-For local developer tools, a declarative command registry may be more appropriate.
+For services with HTTP APIs, OpenAPI is a reasonable foundation. Add annotations for CLI-specific semantics that HTTP schemas cannot express. For local developer tools, a declarative command registry may be more appropriate.
 
 Generate as many interfaces as possible from that shared definition:
 
@@ -66,11 +60,9 @@ Generate as many interfaces as possible from that shared definition:
 
 Not every operation belongs in generated code. Complex workflows, interactive commands, and local operations may require handwritten implementations, but they should register through the same metadata system.
 
-## Make the CLI self-discovering
+## Make the CLI discoverable
 
-An agent should be able to use a CLI that did not exist when its model was trained.
-
-Cloudflare addresses this through natural-language command discovery and structured command inspection.
+An agent should be able to use a CLI that did not exist when its model was trained. Cloudflare addresses this through natural-language command discovery and structured command inspection.
 
 ### Recommended discovery interface
 
@@ -93,7 +85,7 @@ For example, an agent trying to create a database could execute:
 4. `mycli databases create --name example`
 5. `mycli databases get example`
 
-The agent moves from intent to discovery, inspection, execution, and verification without needing a large command reference in its initial context.
+The agent moves from intent to discovery, inspection, preview, execution, and verification without needing a large command reference in its initial context.
 
 ### Search design
 
@@ -112,7 +104,7 @@ A search result should contain enough information to identify the correct comman
 
 ### Progressive disclosure
 
-Do not expose a CLI's entire command catalogue to an agent at startup.
+Do not expose a CLI's entire command catalog to an agent at startup.
 
 Use three levels of information:
 
@@ -124,9 +116,7 @@ This keeps token consumption proportional to the task instead of the total size 
 
 ## Enforce a consistent command grammar
 
-Agents generalize from patterns. Inconsistent naming conventions encourage incorrect command guesses.
-
-Cloudflare identified historical inconsistencies such as using `info`, `get`, and `describe` for conceptually similar operations.
+Agents generalize from patterns. Inconsistent naming conventions encourage incorrect command guesses. Cloudflare identified historical inconsistencies such as using `info`, `get`, and `describe` for conceptually similar operations.
 
 ### Recommended grammar
 
@@ -173,17 +163,11 @@ Enforce these rules through schema validation, generation, and automated tests r
 
 ## Make JSON the primary output contract
 
-Cloudflare observed that agents frequently added `--json` and then used `jq` to extract the fields they needed.
-
-An agent-first CLI should eliminate that unnecessary negotiation.
+Cloudflare observed that agents frequently added `--json` and then used `jq` to extract the fields they needed. An agent-first CLI should make that negotiation unnecessary.
 
 ### Recommendations
 
-**Default to structured output.**
-
-For commands returning structured data, emit JSON without requiring an additional flag.
-
-Reserve human-formatted tables and rich terminal output for an explicitly requested presentation mode.
+**Default to structured output.** For commands returning structured data, emit JSON without requiring an additional flag. Reserve human-formatted tables and rich terminal output for an explicitly requested presentation mode.
 
 Consider:
 
@@ -215,9 +199,7 @@ For resource mutations, prefer a machine-readable receipt containing:
 - Relevant output fields.
 - Job or transaction identifier, where applicable.
 
-For collections, use a predictable schema and include pagination information when results may be incomplete.
-
-For example, a paginated response might contain `items`, `nextCursor`, and `hasMore`.
+For collections, use a predictable schema and include pagination information when results may be incomplete. For example, a paginated response might contain `items`, `nextCursor`, and `hasMore`.
 
 Never silently truncate a collection in a way that causes an agent to mistake the first page for the complete result.
 
@@ -235,9 +217,7 @@ The objective is to return the information necessary for the task without fillin
 
 ## Make errors actionable and machine-readable
 
-A nonzero exit code tells an agent something failed. It rarely tells the agent enough to recover correctly.
-
-Design errors as part of the CLI's public contract.
+A nonzero exit code tells an agent something failed. It rarely tells the agent enough to recover correctly. Design errors as part of the CLI's public contract.
 
 ### Error requirements
 
@@ -250,15 +230,13 @@ Every failure should have:
 - An appropriate process exit code.
 - Suggested corrective actions when these can be determined reliably.
 
-For example:
-
-`INVALID_ARGUMENT`, `UNAUTHENTICATED`, `PERMISSION_DENIED`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, and `TIMEOUT` are more useful categories than a generic failure.
+For example, `INVALID_ARGUMENT`, `UNAUTHENTICATED`, `PERMISSION_DENIED`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, and `TIMEOUT` are more useful categories than a generic failure.
 
 When returning structured errors, define a consistent JSON error schema, including fields such as `code`, `message`, `retryable`, and `details`.
 
 Diagnostics should go to standard error, leaving standard output suitable for parsing.
 
-### Important invariants
+### Invariants
 
 - Successful execution exits with status zero.
 - Failed execution exits nonzero.
@@ -270,7 +248,7 @@ These guarantees allow agents to use process status and structured results witho
 
 ## Make operations previewable, safe, and verifiable
 
-An autonomous agent needs the ability to understand an operation's consequences before performing it.
+An autonomous agent needs to understand an operation's consequences before performing it.
 
 ### Dry-run support
 
@@ -285,25 +263,19 @@ A dry run should:
 - Perform no mutations.
 - Avoid acquiring credentials when they are unnecessary.
 
-Distinguish between a command that merely previews an API request and a command that computes an actual server-side change plan.
-
-If the tool cannot determine every side effect, say so explicitly.
+Distinguish between a command that merely previews an API request and a command that computes an actual server-side change plan. If the tool cannot determine every side effect, say so explicitly.
 
 ### Confirmation semantics
 
-Destructive and high-risk operations should require explicit authorization.
-
-Use a consistent mechanism such as `--force` or a dedicated confirmation flag, with documented behavior.
+Destructive and high-risk operations should require explicit authorization. Use a consistent mechanism such as `--force` or a dedicated confirmation flag, with documented behavior.
 
 Do not automatically convert a missing interactive confirmation into approval simply because a command is being run by an agent.
 
-For especially sensitive operations, support confirmation of the exact resource identifier or an approved plan identifier.
-
-A flag used to bypass confirmation should not silently change the underlying operation's semantics.
+For especially sensitive operations, support confirmation of the exact resource identifier or an approved plan identifier. A flag used to bypass confirmation should not silently change the underlying operation's semantics.
 
 ### Verification
 
-Wherever possible, support an agent's ability to check the result independently:
+Wherever possible, let an agent check the result independently:
 
 - Read back created or modified resources.
 - Return stable resource identifiers.
@@ -316,9 +288,7 @@ Wherever possible, support an agent's ability to check the result independently:
 
 ## Make execution context explicit
 
-An agent must know exactly where an operation will take effect.
-
-This is especially important for tools that can operate across local development environments, remote services, multiple accounts, or production environments.
+An agent must know exactly where an operation will take effect. This is especially important for tools that can operate across local development environments, remote services, multiple accounts, or production environments.
 
 ### Required context
 
@@ -342,15 +312,11 @@ Provide a way to inspect the context before executing commands, such as `mycli c
 - Fail clearly when an operation does not support the requested target.
 - Make switching accounts or environments deliberate.
 
-Where local simulation is supported, use the same command and data semantics as the remote implementation whenever possible.
-
-This helps agents reason about behavior consistently across testing and production.
+Where local simulation is supported, use the same command and data semantics as the remote implementation whenever possible. This helps agents reason about behavior consistently across testing and production.
 
 ## Treat configuration as an agent-facing API
 
-Cloudflare found that TypeScript configuration improved agent performance because models could use type information, autocomplete, and language-server diagnostics.
-
-The broader principle is that **configuration should be statically understandable and programmatically verifiable**.
+Cloudflare found that TypeScript configuration improved agent performance because models could use type information, autocomplete, and language-server diagnostics. The broader principle is that **configuration should be statically understandable and programmatically verifiable**.
 
 ### Recommendations
 
@@ -363,11 +329,7 @@ Use configuration formats with:
 - Predictable environment overrides.
 - Programmatic composition where appropriate.
 
-TypeScript configuration is particularly useful when a system benefits from conditional values, reusable components, computed environments, and complex relationships.
-
-JSONC with JSON Schema may be preferable for tools that require portable, declarative configuration without executing code.
-
-Do not assume TypeScript is universally superior. Choose a format based on the operational requirements of the application.
+TypeScript configuration is particularly useful when a system benefits from conditional values, reusable components, computed environments, and complex relationships. JSONC with JSON Schema may be preferable for tools that require portable, declarative configuration without executing code. Do not assume TypeScript is universally superior; choose a format based on the operational requirements of the application.
 
 ### Additional requirements
 
@@ -385,9 +347,7 @@ If configuration is executable code, account for side effects, untrusted depende
 
 ## Design for composability and automation
 
-Agents frequently perform multi-command workflows rather than isolated operations.
-
-The CLI should support ordinary shell composition without requiring custom integrations.
+Agents frequently perform multi-command workflows rather than isolated operations. The CLI should support ordinary shell composition without requiring custom integrations.
 
 ### Input conventions
 
@@ -431,9 +391,7 @@ This allows agents to manage operations that outlive an individual shell invocat
 
 ## Make documentation available on demand
 
-Documentation should be retrievable rather than assumed to exist in the model's training data.
-
-Cloudflare's approach demonstrates a useful separation between command discovery and documentation search.
+Documentation should be retrievable rather than assumed to exist in the model's training data. Cloudflare's approach demonstrates a useful separation between command discovery and documentation search.
 
 ### Recommendations
 
@@ -444,11 +402,7 @@ Maintain distinct interfaces for:
 - **Documentation search:** What concepts, prerequisites, and examples do I need?
 - **Version inspection:** Which behavior is supported by the installed CLI?
 
-Prefer machine-readable search results containing concise descriptions and documentation locations.
-
-Make full documentation available as Markdown or another easily parsed text format.
-
-Avoid requiring agents to extract knowledge from interactive documentation websites.
+Prefer machine-readable search results containing concise descriptions and documentation locations. Make full documentation available as Markdown or another easily parsed text format. Avoid requiring agents to extract knowledge from interactive documentation websites.
 
 ### Agent instruction files
 
@@ -465,11 +419,7 @@ Keep this document small. It should direct agents toward live discovery, not dup
 
 ### CLI and MCP should share the same foundation
 
-An MCP server can expose the same operations through structured tool calls, but it should not require maintaining a second independent definition of the product's capabilities.
-
-Generate MCP tools, command metadata, and documentation from shared schemas wherever possible.
-
-Use whichever interface is appropriate for the execution environment without introducing inconsistent semantics.
+An MCP server can expose the same operations through structured tool calls, but it should not require maintaining a second independent definition of the product's capabilities. Generate MCP tools, command metadata, and documentation from shared schemas wherever possible. Use whichever interface is appropriate for the execution environment without introducing inconsistent semantics.
 
 ## Design authentication for unattended agents
 
@@ -488,11 +438,7 @@ Support:
 
 Never require unattended agents to complete browser-based login flows.
 
-Do not print secrets, credentials, or sensitive authorization headers into ordinary output, errors, dry runs, or logs.
-
-Avoid putting sensitive credentials directly in command-line arguments because process arguments can be exposed through logs and operating-system facilities.
-
-Use secure credential stores, protected files, environment injection, or other suitable secret-delivery mechanisms.
+Do not print secrets, credentials, or sensitive authorization headers into ordinary output, errors, dry runs, or logs. Avoid putting sensitive credentials directly in command-line arguments, because process arguments can be exposed through logs and operating-system facilities. Use secure credential stores, protected files, environment injection, or other suitable secret-delivery mechanisms.
 
 Command discovery and local schema inspection should work without credentials whenever practical.
 
@@ -513,15 +459,13 @@ Each step has a distinct responsibility.
 | Execute | Perform the authorized operation |
 | Verify | Expose the resulting state or completion status |
 
-Not every read-only command needs every phase. The important property is that the workflow is available whenever the operation requires it.
+Not every read-only command needs every phase. What matters is that the workflow is available whenever the operation requires it.
 
 A CLI implementing this contract should allow an unfamiliar agent to accomplish a meaningful task without consulting external documentation or guessing at command syntax.
 
 ## Measure agent usability directly
 
-Traditional CLI quality measures such as command count and documentation coverage are insufficient.
-
-Test the interface using agents that begin with no specialized knowledge of the CLI.
+Traditional CLI quality measures such as command count and documentation coverage are insufficient. Test the interface using agents that begin with no specialized knowledge of the CLI.
 
 ### Recommended evaluation metrics
 
@@ -559,11 +503,7 @@ Measure actual end-state correctness rather than treating a zero exit code as su
 
 ## Final recommendations
 
-Cloudflare's experience supports a shift in how command-line interfaces should be designed.
-
-The traditional assumption is that a developer learns the CLI and then invokes commands.
-
-An agent-first CLI should instead allow an agent to learn the relevant interface dynamically while working.
+Cloudflare's experience supports a shift in how command-line interfaces should be designed. The traditional assumption is that a developer learns the CLI and then invokes commands. An agent-first CLI should instead allow an agent to learn the relevant interface dynamically while working.
 
 The most important architectural decisions are therefore:
 
@@ -575,7 +515,7 @@ The most important architectural decisions are therefore:
 6. **Use progressive disclosure**, keeping the agent's context focused on the task.
 7. **Evaluate the complete agent workflow**, not just the correctness of individual commands.
 
-The goal is not to make agents better at operating traditional CLIs. It is to design CLIs whose capabilities can be discovered, understood, and used reliably by agents.
+The goal is to design CLIs whose capabilities agents can discover, understand, and use reliably, not to make agents better at operating traditional CLIs.
 
 **A good agent-first CLI should be usable by a capable agent with no prior knowledge of the tool, no special prompt engineering, and no manual intervention for ordinary authorized operations.**
 
