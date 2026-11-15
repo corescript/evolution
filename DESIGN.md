@@ -41,11 +41,11 @@ Nothing at the type level is cut. Conditional types, template literal types, and
 
 - `any` is a box. It can be held and passed freely, and it must be narrowed before use; member access on `any` is rejected.
 - `!` checks, and traps on every target.
-- `readonly` is sound. A `readonly` property cannot be assigned to a writable one, and the checker enforces that. It is still a view, shallow and aliasable; immutable data is what records are for.
+- `readonly` is sound. A type with a `readonly` property is not assignable to one where that property is writable. It is still a view, shallow and aliasable; immutable data is what records are for.
 - `switch` must be exhaustive.
 - `class` is nominal. An instance of one class is never accepted as another because their members happen to match, and an object literal is never an instance. TypeScript treats a class this way only once it has a private member. Interfaces stay structural, and a class satisfies any interface whose members it has. Protocols, described below, are their nominal counterpart.
 - `enum` loses reverse lookup, computed members, and declaration merging.
-- `namespace` is a name path. A `Button.Props` interface beside a `Button` function, or a class nested under a class, are two definitions at two paths, and nothing merges at run time. Using a namespace as a dynamic bag (`Foo["Bar"]`, `Object.keys(Foo)`) is a compile error.
+- `namespace` is a name path. A `Button.Props` interface beside a `Button` function is two definitions at two paths, and so is a class nested under another class. Nothing merges at run time. Using a namespace as a dynamic bag (`Foo["Bar"]`, `Object.keys(Foo)`) is a compile error.
 - `int` is a subtype of `number`. It is closed under `+`, `-`, and `*`, it traps outside the safe-integer range, and division returns `number`.
 
 Declaration files from npm keep tsc's semantics, and authored code gets CoreScript's.
@@ -165,7 +165,7 @@ TypeScript's `as` is an unchecked assertion. `value as User` compiles whether or
 - `as?` checks at run time and evaluates to `T | undefined`.
 - `as!` checks at run time and traps if the check fails.
 
-The target of a checked cast has to be something the runtime can test, so function types and bare type parameters are rejected, and the target of `as?` cannot include `undefined`, since failure would be indistinguishable from success. `as const` and `satisfies` are unchanged. Both new spellings are errors in TypeScript today, so no existing program changes meaning.
+The target of a checked cast has to be something the runtime can test, so function types and bare type parameters are rejected. The target of `as?` cannot include `undefined`, since failure would then be indistinguishable from success. `as const` and `satisfies` are unchanged. Both new spellings are errors in TypeScript today, so no existing program changes meaning.
 
 A trap is a bug in the program, and it sits deliberately outside the error system. A failed `as!`, a failed `!`, and `int` overflow all trap. Traps never appear in a `throws` clause, and `catch` does not catch them on any target.
 
@@ -225,7 +225,7 @@ function nonNull<A extends unknown[], R>(
 
 The cost is that the signature as written is no longer the signature callers see. The body is checked against what is written, callers are checked against the result, and any view of a contract must show the effective signature. The expansion is stored by hash, so showing it is cheap.
 
-A second kind of decorator receives the checked declaration as data and returns new declarations: a generated totality test for a reducer, lens helpers for a state type, a typed client from a service contract. It avoids the problems Swift's macros have because of how they are built. A decorator is an ordinary definition run by the compiler's own interpreter, so there is no syntax library to version and no separate plugin to build. It receives types where a Swift macro receives only syntax. Its expansion is cached, viewable, and diffable. We plan the wrapping kind first and the deriving kind after it.
+A second kind of decorator receives the checked declaration as data and returns new declarations: a generated totality test for a reducer, lens helpers for a state type, a typed client from a service contract. It avoids the problems that Swift's macros have because of how those macros are built. A decorator is an ordinary definition run by the compiler's own interpreter, so there is no syntax library to version and no separate plugin to build. It receives types where a Swift macro receives only syntax. Its expansion is cached, viewable, and diffable. We plan the wrapping kind first and the deriving kind after it.
 
 ## Markup
 
@@ -272,7 +272,7 @@ Keys stay explicit. Records have equality and hashing from the compiler, so `key
 ## Deliberately left out
 
 - Ownership, borrowing, and lifetime annotations. Reference counting with a cycle collector, or the host's garbage collector, manages memory.
-- Compatibility with TypeScript as it evolves. After the fork point, new JavaScript or TypeScript features are adopted only when we want them and must each go through the CoreScript evolution proposal process individually.
+- Compatibility with TypeScript as it evolves. After the fork point, new JavaScript or TypeScript features are adopted only when we want them, and each must go through the CoreScript evolution process.
 - A `const` that makes class instances deeply immutable. A constant binding cannot stop writes through another alias, copying on assignment would silently change what existing TypeScript code computes, and foreign typings do not say which methods mutate their receiver.
 - User-defined matchers. TC39's pattern matching proposal builds them on a `Symbol.customMatcher` protocol looked up at run time, and CoreScript's patterns resolve statically.
 - TC39's structs and shared structs. Classes already have a fixed layout, and shared structs permit data races by design.
