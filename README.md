@@ -1,6 +1,6 @@
 # CoreScript
 
-CoreScript is a programming language for building a whole product in one language, on every platform it ships on. It is a dialect of TypeScript, designed for agents to write and for people to review. Everything except a product's views is written once, and each platform's views are written in the same language against that platform's own toolkit.
+CoreScript is one programming language for building a whole product, on every platform it ships on. It is a dialect of TypeScript, designed for agents to write and for people to review. Everything except a product's views is written once, and each platform's views are written in the same language against that platform's own toolkit.
 
 Nothing here is implemented yet. This repository holds the design.
 
@@ -10,8 +10,8 @@ Nothing here is implemented yet. This repository holds the design.
 - Effect metadata. Every definition carries what it can throw, which capabilities it uses, and where it must run.
 - Distributed package registries on the AT Protocol.
 - Source control, a command line, and language intelligence built for agents.
-- Multi-target compilation: JavaScript for the web and for servers, native code that follows Swift's ABI on Apple platforms, and class files for Android.
-- Multi-toolkit user interfaces: one declarative model for views, written once per toolkit, from the DOM to SwiftUI and Jetpack Compose.
+- Multi-target compilation. JavaScript for the web and for servers, native code that follows Swift's ABI on Apple platforms, and class files for Android.
+- Multi-toolkit user interfaces. One declarative model for views, written once per toolkit, from the DOM to SwiftUI and Jetpack Compose.
 
 ## A taste
 

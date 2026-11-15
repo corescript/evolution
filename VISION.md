@@ -6,11 +6,11 @@
 
 A product that ships as a server, a web app, an iOS app, and an Android app has four implementations of much of its logic and four sets of tests, written in three or four languages, and all of them must agree. Making the server authoritative removes some of the duplication, and generating types removes a little more. Validation, state machines, formatting, navigation, caching, and offline behavior are still written once per platform. The copies drift, and they drift faster now that products change every week.
 
-Agents write most of that code. The cost of writing it has collapsed, and the cost of knowing it is right has not. Humans review evidence more often than they review code: preview builds, screenshots, test results, changed contracts. With four implementations, the question a reviewer cares about, whether the code meets the requirements, is tangled up with a second one, whether the implementations agree. The second question is mechanical. A shared language answers it once, as a matter of compiler conformance, and leaves human and agent judgment for the first.
+Agents write most of that code. The cost of writing it has collapsed, and the cost of knowing it is right has not. Humans review evidence more often than they review code: preview builds, screenshots, test results, changed contracts. With four implementations, the question a reviewer cares about, whether the code meets the requirements, is tangled up with a second: whether the implementations agree. The second question is mechanical. A shared language answers it once, as a matter of compiler conformance, and leaves human and agent judgment for the first.
 
-Some of that duplication is the price of doing multiplatform apps well. A product should be built with the toolkit native to each platform: the DOM on the web, SwiftUI, UIKit, and AppKit on Apple platforms, Jetpack Compose and `android.view` on Android, WinUI on Windows, GTK on Linux. Each platform has its own conventions and capabilities, and an interface that ignores them feels foreign. So the views, and the interactions inside them, are written once per platform. Nothing else has a reason to differ: business rules, the state machine behind each screen, service contracts, navigation, validation, and formatting.
+Some of that duplication is the price of building multiplatform apps well. A product should be built with the toolkit native to each platform: the DOM on the web; SwiftUI, UIKit, and AppKit on Apple platforms; Jetpack Compose and `android.view` on Android; WinUI on Windows; GTK on Linux. Each platform has its own conventions and capabilities, and an interface that ignores them feels foreign. So the views, and the interactions inside them, are written once per platform. Nothing else has a reason to differ: business rules, the state machine behind each screen, service contracts, navigation, validation, and formatting.
 
-CoreScript is one programming language for the whole product, together with the tools an agent needs to work in it. Our aim is that it is the only language we and our agents write when building for consumers. Everything shared is written once. Each platform's views are written separately, in the same language and with the same declarative model, against that platform's own toolkit. To make that possible, CoreScript compiles to what each platform's frameworks expect: JavaScript on the web, code that follows Swift's ABI on Apple platforms, and class files that Kotlin's runtime understands on Android.
+CoreScript is one programming language for the whole product, together with the tools an agent needs to work in it. Our aim is for it to be the only language we and our agents write when building for consumers. Everything shared is written once. Each platform's views are written separately, in the same language and with the same declarative model, against that platform's own toolkit. To make that possible, CoreScript compiles to what each platform's frameworks expect: JavaScript on the web, code that follows Swift's ABI on Apple platforms, and class files that Kotlin's runtime understands on Android.
 
 The language is a dialect of TypeScript. It keeps TypeScript's syntax and type system, removes the dynamic behavior that cannot mean the same thing on every platform, and adds value types, nominal protocols, checked casts, effect clauses, and actors. Its tools assume that the author is an agent and the reviewer is a person looking at evidence.
 
@@ -60,11 +60,11 @@ Maintaining a code database by hand is tedious for a person. For an agent it is 
 
 Syntax is a parser and a printer over the stored trees. That has three consequences. Formatting cannot conflict, because it is not stored. A reading aid does not have to be a writing burden: a view can print inferred effect clauses beside each signature, argument labels at call sites, the expansion of a decorator, or a reducer as a transition table, and nobody has to type any of it. And the surface syntax can be varied or replaced without touching stored code, which is what makes the benchmark described under [Verification](#verification) cheap to run.
 
-There is a lossless canonical text form. Review and editing need one, and it makes a git mirror of a codebase cheap. When files have to be materialized, they use the `.core` extension, and they are a rendering of the store and never its source of truth.
+There is a lossless canonical text form. Review and editing need one, and it makes a Git mirror of a codebase cheap. When files have to be materialized, they use the `.core` extension. They are a rendering of the store, never its source of truth.
 
 ### Changes that carry through
 
-References by hash change what a conflicting edit looks like. Suppose one agent changes a function's signature while another adds a caller. Git merges the two cleanly, and the build breaks. Here the new caller stays valid against the old definition, and it appears on a list of things to update when the name moves. Dependents that still type-check follow a change automatically. Those that do not keep their old version and go on the list, so nothing is ever half-updated. The mechanism is tcm's, and CoreScript leans on it: a function that starts throwing puts every caller that lacks a `try` on that list.
+References by hash change what a conflicting edit looks like. Suppose one agent changes a function's signature while another adds a caller. Git merges the two cleanly, and the build breaks. Here the new caller stays valid against the old definition, and it appears on a list of things to update when the name moves. Dependents that still type-check follow a change automatically. The rest keep their old version and go on the list, so nothing is ever half-updated. The mechanism is tcm's, and CoreScript leans on it: a function that starts throwing puts every caller that lacks a `try` on that list.
 
 ### Evidence by hash
 
@@ -100,11 +100,11 @@ export async function loadCart(id: CartId): Promise<Cart>
 
 ### Failure
 
-A call that can throw must be marked, with three forms: `try f()` propagates the error, `try? f()` evaluates to `T | undefined`, and `try! f()` traps. The marker is required for two reasons. A stored codebase has one spelling per meaning. And a required marker makes a contract change loud: when a function starts throwing, its callers stop compiling and land on the list of things to update. With every throwing call marked and every `throws` clause known, `catch (e)` binds a real type, the union of what the block it guards can throw, where TypeScript gives `unknown`.
+A call that can throw must be marked, in one of three forms: `try f()` propagates the error, `try? f()` evaluates to `T | undefined`, and `try! f()` traps. The marker is required for two reasons. A stored codebase has one spelling per meaning. And a required marker makes a contract change loud: when a function starts throwing, its callers stop compiling and land on the list of things to update. With every throwing call marked and every `throws` clause known, `catch (e)` binds a real type where TypeScript gives `unknown`: the union of what the guarded block can throw.
 
 ### Capabilities
 
-`uses` names the capabilities a function needs: the network, the clock, randomness, the file system, a database. Code still calls `fetch` and `Date.now()` directly. The clause records that it did. Tests replace a capability with a scoped handler, which every runtime has to carry across `await`. A capability can have several implementations, so `uses(d1)` can be Cloudflare's database on a server, SQLite on a phone, and a fake in a test, as long as the capability's contract promises only what all of them provide.
+`uses` names the capabilities a function needs: the network, the clock, randomness, the file system, a database. Code still calls `fetch` and `Date.now()` directly. The clause records that it does. Tests replace a capability with a scoped handler, which every runtime has to carry across `await`. A capability can have several implementations, so `uses(d1)` can be Cloudflare's database on a server, SQLite on a phone, and a fake in a test, as long as the capability's contract promises only what all of them provide.
 
 ### Isolation
 
@@ -159,7 +159,7 @@ Principle 7 sets the rest of the requirements, and systems already built for age
 
 Review changes shape as well. A reviewer sees what a change reaches, which contracts it alters, and which tests cover it, and reads code only where that summary raises a question. Verification follows the same graph: the tests that reach a change are the ones that run, and their results travel with the change to every other machine.
 
-Source control here is a service that answers questions, such as what changed, who changed it, and what depends on it, with no checkout needed to ask. Git cannot operate on this model, and we do not want lossy conversions to files in order to use it. The lossless text form makes a read-only git mirror cheap, for tools that only read.
+Source control here is a service that answers questions, such as what changed, who changed it, and what depends on it, with no checkout needed to ask. Git cannot operate on this model, and we do not want lossy conversions to files just to use Git. The lossless text form makes a read-only Git mirror cheap, for tools that only read.
 
 The commitments above are firm. The mechanisms behind them are still to be designed.
 
@@ -202,7 +202,7 @@ The tooling answers questions like these directly:
 
 Edits are operations on meaning. An agent replaces a definition and gets back what followed, what landed on the update list, and which tests ran. A rename moves a label. A larger refactor is a tree transformation that the tool applies and checks as one step.
 
-Diagnostics are written for a repair loop. Each has a stable code and names its fix, in the way that a rejected downcast points at `as?` and `as!`. A compile error is the cheapest feedback an agent gets, which is why the language prefers an error to a silent difference everywhere, and the tooling's job is to make each error sufficient to act on.
+Diagnostics are written for a repair loop. Each has a stable code and names its fix, in the way that a rejected downcast points at `as?` and `as!`. A compile error is the cheapest feedback an agent gets, which is why the language prefers an error to a silent difference everywhere. The tooling's job is to make each error sufficient to act on.
 
 Views control how much an agent reads. A signature-only view of a namespace, a contract view of one definition, and a transition table for a reducer are renderings of the same trees, and an agent asks for the smallest one that answers its question.
 
@@ -254,7 +254,7 @@ The codebase is its own declaration format. A library release is a set of signat
 - C and Objective-C headers, read through Clang, which covers UIKit, AppKit, and Foundation.
 - Swift module interfaces, the textual descriptions Apple ships in its SDKs for frameworks such as SwiftUI.
 - JVM class files together with Kotlin's metadata, which covers `android.view` and Jetpack Compose.
-- Windows metadata files, which describe WinRT, where WinUI lives, and, through Microsoft's win32metadata project, Win32 and COM.
+- Windows metadata files, which describe WinRT (where WinUI lives) and, through Microsoft's win32metadata project, Win32 and COM.
 - GObject Introspection data, which describes GTK.
 
 Each platform's nominal interfaces arrive as CoreScript [protocols](DESIGN.md#protocols): Swift and Objective-C protocols, JVM interfaces, WinRT interfaces, and GObject interfaces. A type conforms to one by declaring it, which is how a CoreScript type becomes a SwiftUI view or a UIKit delegate. TypeScript's interfaces stay structural.
@@ -283,7 +283,7 @@ A record's layout is known from its type, so native backends keep records on the
 
 CoreScript shares everything except the views and the interactions inside them. A view is written for one toolkit, in CoreScript, and rendered by that toolkit's own machinery. What carries from platform to platform is the programming model: the same language, the same architecture, and the same way of composing a view from state. Skills, patterns, and much of the code are reused, and each view still follows its platform's conventions and uses its capabilities.
 
-React Native named this approach in 2015 as "learn once, write anywhere", and Apple made the same promise for SwiftUI across its own platforms. CoreScript extends it across toolkits from different vendors.
+React Native named this approach "learn once, write anywhere" in 2015, and Apple made the same promise for SwiftUI across its own platforms. CoreScript extends it across toolkits from different vendors.
 
 | Toolkit | Platform | Style | Declarations come from |
 | --- | --- | --- | --- |
@@ -395,7 +395,7 @@ Each is the subject of an early spike.
 
 CoreScript starts from TypeScript. Agents already write it well, from a very large corpus. It has mature tooling, including dozens of Rust crates. On the web it is the language itself, and JavaScript engines and test262 already define what a correct program does. Other projects have shown the remaining pieces work: [scriptc](https://github.com/vercel-labs/scriptc) and [Porffor](https://porffor.dev/) compile it ahead of time to native code, and [tcm](https://tcm.codes/) stores it as a content-addressed codebase.
 
-TypeScript as it stands cannot be the language. Its types can lie, it has no way to state failure or capabilities, and it has no value types. So CoreScript is a dialect, neither a strict subset of TypeScript nor a superset, governed by one rule. Wherever TypeScript's types tell the truth, CoreScript computes the same values. Where they would have lied, it rejects the program, traps, or returns a typed absence. It never silently computes a different value. Being a dialect is a real cost, and we judge it necessary for the best experience for both people and agents.
+TypeScript as it stands cannot be the language. Its types can lie, it has no way to state failure or capabilities, and it has no value types. So CoreScript is a dialect, neither a strict subset of TypeScript nor a superset, governed by one rule. Wherever TypeScript's types tell the truth, CoreScript computes the same values. Where they would have lied, it rejects the program, traps, or returns a typed absence. It never silently computes a different value. Being a dialect is a real cost, and we judge it necessary to give both people and agents the best experience.
 
 The additions are value types (records, tuples, and structs), enums with payloads and an exhaustive `match`, nominal protocols, checked casts, effect clauses, actors, compile-time evaluation with decorators, and markup. People still read this code, so it has to be easy to read and easy to catch mistakes in. Annotations appear where they state a contract, and a small amount of runtime does the rest.
 
@@ -468,7 +468,7 @@ Every claim of correctness needs something outside the implementation to compare
 
 ### The cold-agent benchmark
 
-Many choices in this document are claims about what agents read and write well, and CoreScript starts with no training corpus of its own. Both can be measured. Give an agent that has never seen the language only its documentation and its tools, then compare turns to a passing build and defect rate against TypeScript, Swift, and Kotlin on a fixed set of tasks. The tasks should include editing existing code as well as writing new code, and each run should be repeated with and without the agent-first tooling described above.
+Many choices in this document are claims about what agents read and write well, and CoreScript starts with no training corpus of its own. The claims and the effect of the missing corpus can both be measured. Give an agent that has never seen the language only its documentation and its tools, then compare the turns it takes to reach a passing build, and its defect rate, against TypeScript, Swift, and Kotlin on a fixed set of tasks. The tasks should include editing existing code as well as writing new code, and each run should be repeated with and without the agent-first tooling described above.
 
 Because code is stored as trees, a syntax variant costs a parser and a printer. The benchmark can therefore decide questions that would otherwise be settled by taste: tags with quoted text and plain control flow against JSX with marked control flow, the required `try`, the pipeline operator, and the default isolation of async functions. It can also test the claim behind the multi-toolkit model, by measuring how much faster an agent builds a feature's second view, on a second toolkit, than its first. We should build it early. It has not been run. Until it has, the claim that agents can work in a dialect they were not trained on rests on argument alone.
 
@@ -494,7 +494,7 @@ The tools:
 User interfaces and backends:
 
 - How are a feature's per-toolkit views named, and how does a build select among them? We lean toward one name per toolkit under the feature, chosen explicitly by each target's entry point.
-- How do async functions and actors map onto each host's concurrency runtime? On Apple platforms the main actor has to be Swift's main actor, since UIKit and SwiftUI are isolated to it. An async function could be a Swift async function at the ABI level, or a CoreScript construct bridged to one. The mapping is not one to one, because a JavaScript promise starts running when it is created and can be awaited later, which a Swift async call cannot. We lean toward building on Swift's concurrency runtime on Apple platforms and on Kotlin's coroutines on Android, as we build on the host's collector.
+- How do async functions and actors map onto each host's concurrency runtime? On Apple platforms the main actor has to be Swift's main actor, since UIKit and SwiftUI are isolated to it. An async function could be a Swift async function at the ABI level, or a CoreScript construct bridged to one. The mapping is not one-to-one, because a JavaScript promise starts running when it is created and can be awaited later, which a Swift async call cannot. We lean toward building on Swift's concurrency runtime on Apple platforms and on Kotlin's coroutines on Android, as we build on the host's collector.
 - What kind of cycle collector does the reference-counted runtime use? Tracing and trial deletion are the candidates, and we have no leaning yet.
 - How do records get value equality on the web, where JavaScript compares objects by identity? The compiler can emit an equality function and call it wherever `===` meets a record type, along with hashing and its own `Map` and `Set` for record keys. Or the runtime can intern records, so that equal records are the same object and JavaScript's own `===`, `Map`, and `Set` work unchanged, at the price of a table lookup every time a record is created. We lean toward generated equality, because interface code creates records far more often than it compares them. Under that choice, foreign JavaScript that receives a record still sees identity.
 
@@ -507,7 +507,7 @@ Packages from npm:
 
 ### Kotlin Multiplatform
 
-It shares code across the platforms we care about and has years of production use. The code it generates for JavaScript and Wasm is less than optimal, and Kotlin's defaults hide meaning that an agent has to carry in its head and a reviewer cannot see. Its views are either one Compose interface drawn the same way everywhere or a second language per platform. We also do not want the Kotlin, Gradle, and JVM toolchain as a requirement for every platform.
+Kotlin Multiplatform shares code across the platforms we care about and has years of production use. The code it generates for JavaScript and Wasm is less than optimal, and Kotlin's defaults hide meaning that an agent has to carry in its head and a reviewer cannot see. Its views are either one Compose interface drawn the same way everywhere or a second language per platform. We also do not want the Kotlin, Gradle, and JVM toolchain as a requirement for every platform.
 
 ### A new language
 
@@ -519,7 +519,7 @@ Removing features without adding any would keep every existing tool working unch
 
 ### Effects by convention
 
-Capabilities could be passed as parameters and errors returned as values, with no new clauses. Each would rewrite every function body or every call, for information the compiler can carry in a clause. Resumable effect handlers in the style of Unison would be more expressive than clauses, and they need continuations, which none of our hosts expose.
+Capabilities could be passed as parameters and errors returned as values, with no new clauses. Each would rewrite every function body or every call, for information the compiler can carry in a clause. Resumable effect handlers in the style of Unison would be more expressive than clauses, but they need continuations, which none of our hosts expose.
 
 ### Views in Swift and Kotlin over a shared core
 
@@ -543,7 +543,7 @@ Running shared code in JavaScriptCore, Hermes, or QuickJS would work on the firs
 
 ### Git and a central registry
 
-Keeping files in git and publishing to npm would let every existing tool keep working. Both are built on files and on trust in a host. Definitions stored by hash need neither, and the tools we would give up are the ones this vision replaces.
+Keeping files in Git and publishing to npm would let every existing tool keep working. Both are built on files and on trust in a host. Definitions stored by hash need neither, and the tools we would give up are the ones this vision replaces.
 
 ## Prior art
 
