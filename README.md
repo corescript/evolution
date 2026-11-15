@@ -29,9 +29,8 @@ export async function loadCart(id: CartId): Promise<Cart>
 
 ## Documents
 
-- [VISION.md](VISION.md) explains what CoreScript is for and describes the system around the language.
+- [VISION.md](VISION.md) explains what CoreScript is for, states the eight principles the design follows, and describes the system around the language.
 - [DESIGN.md](DESIGN.md) describes the language itself.
-- [PROMPT.md](PROMPT.md) is the original statement of the problem and the eight principles the design follows.
 - [docs/](docs/) holds background: the application architecture, a guide to command lines built for agents, and a brief on what agents can build today.
 
 ## Status
